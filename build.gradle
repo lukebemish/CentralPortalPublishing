@@ -1,0 +1,44 @@
+import org.gradle.api.attributes.plugin.GradlePluginApiVersion
+
+plugins {
+    id 'java-gradle-plugin'
+    id 'maven-publish'
+}
+
+['apiElements', 'runtimeElements'].each {
+    configurations.named(it).configure {
+        attributes {
+            attribute(
+                    GradlePluginApiVersion.GRADLE_PLUGIN_API_VERSION_ATTRIBUTE,
+                    objects.named(GradlePluginApiVersion, gradle.gradleVersion)
+            )
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+    gradlePluginPortal()
+}
+
+dependencies {
+    implementation gradleApi()
+    implementation 'org.apache.commons:commons-text:1.10.0'
+}
+
+gradlePlugin {
+    plugins {
+        managedVersioning {
+            id = 'dev.lukebemish.central-portal-publishing'
+            implementationClass = 'dev.lukebemish.centralportalpublishing.CentralPortalPublishingPlugin'
+        }
+    }
+}
+
+java.withSourcesJar()
+java.withJavadocJar()
+java.toolchain.languageVersion.set JavaLanguageVersion.of(21)
+
+processResources {
+    from rootProject.file('LICENSE')
+}
