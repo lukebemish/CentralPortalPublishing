@@ -6,6 +6,8 @@ plugins {
     alias cLibs.plugins.gradlepublish
 }
 
+group = 'dev.lukebemish'
+
 ['apiElements', 'runtimeElements'].each {
     configurations.named(it).configure {
         attributes {

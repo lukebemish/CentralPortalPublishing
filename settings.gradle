@@ -81,7 +81,7 @@ managedVersioning {
             prettyName.set 'Publish PR'
             publishPullRequestAction(
                 'github',
-                "dev/lukebemish/zig-gradle,dev/lukebemish/zig-gradle/*",
+                "dev/lukebemish/central-portal-publishing,dev/lukebemish/central-portal-publishing/*",
                 'Build PR'
             )
         }
