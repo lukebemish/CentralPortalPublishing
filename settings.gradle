@@ -50,7 +50,7 @@ managedVersioning {
                 buildCache()
                 needs.add('build')
                 // TODO: see https://github.com/gradle/plugin-portal-requests/issues/155
-                gradlew 'Publish Plugins', 'publishPlugins', '--no-configuration-cache'
+                gradlew 'Publish Plugins', 'publishPlugins', '--no-configuration-cache', '-Dorg.gradle.unsafe.isolated-projects=false'
                 tag.set('${{needs.build.outputs.version}}')
                 pluginPortal()
             }
