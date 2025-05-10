@@ -162,12 +162,16 @@ public abstract class UploadBundleTask extends DefaultTask {
                             throw new IOException("Failed to parse verification response: " + response);
                         }
                         switch (deploymentState) {
-                            case "PENDING", "VALIDATING", "PUBLISHING" -> betweenRequests = delay(betweenRequests);
+                            case "PENDING", "VALIDATING", "PUBLISHING" -> {
+                                betweenRequests = delay(betweenRequests);
+                                continue;
+                            }
                             case "VALIDATED" -> getLogger().lifecycle("Deployment passed validation and ready to manually deploy.");
                             case "PUBLISHED" -> getLogger().lifecycle("Deployment was successfully published.");
                             case "FAILED" -> throw new IOException("Deployment failed. Check the Central Portal UI ("+getBundleSpec().getPortalUrl().get()+") for more details.");
                             default -> throw new IOException("Unknown deployment state: " + deploymentState);
                         }
+                        break;
                     } catch (SocketTimeoutException ignored) {
                         // Could just be central being slow -- give it till the main timeout
                         betweenRequests = delay(betweenRequests);
