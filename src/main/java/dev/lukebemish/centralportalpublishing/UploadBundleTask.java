@@ -96,11 +96,11 @@ public abstract class UploadBundleTask extends DefaultTask {
             throw new UncheckedIOException(e);
         }
 
-        /*try {
+        try {
             uploadBundle(bundlePath);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
-        }*/
+        }
     }
 
     private void uploadBundle(Path bundlePath) throws IOException {
@@ -158,7 +158,7 @@ public abstract class UploadBundleTask extends DefaultTask {
                         }
                         var response = Objects.requireNonNull(result.body()).string();
                         var element = new JsonSlurper().parseText(response);
-                        if (!(element instanceof Map map) || !(map.get("deploymentState") instanceof String deploymentState)) {
+                        if (!(element instanceof Map<?, ?> map) || !(map.get("deploymentState") instanceof String deploymentState)) {
                             throw new IOException("Failed to parse verification response: " + response);
                         }
                         switch (deploymentState) {
