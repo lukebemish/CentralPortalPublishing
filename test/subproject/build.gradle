@@ -1,0 +1,19 @@
+plugins {
+    id 'maven-publish'
+    id 'java-library'
+    id 'dev.lukebemish.central-portal-publishing'
+}
+
+group = 'org.example'
+version = '2.0.0'
+
+publishing {
+    repositories {
+        centralPortalPublishing.portal(':', 'main')
+    }
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
+}

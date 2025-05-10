@@ -14,6 +14,7 @@ import org.gradle.api.tasks.UntrackedTask;
 import javax.inject.Inject;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.HashSet;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -53,18 +54,24 @@ public abstract class UploadBundleTask extends DefaultTask {
                     continue;
                 }
                 try (var contained = Files.walk(file.toPath())) {
+                    var files = new HashSet<>();
                     contained.forEach(p -> {
                         try {
                             var relative = file.toPath().relativize(p).toString().replace('\\', '/');
-                            if (Files.isDirectory(p)) {
-                                zis.putNextEntry(new ZipEntry(relative + "/"));
-                            } else {
+                            if (!Files.isDirectory(p)) {
+                                // Skip directories outright
                                 var fileName = p.getFileName().toString();
                                 if (fileName.startsWith("maven-metadata.xml.") || fileName.equals("maven-metadata.xml")) {
                                     return;
                                 }
-                                zis.putNextEntry(new ZipEntry(relative));
-                                Files.copy(p, zis);
+                                if (files.add(relative)) {
+                                    zis.putNextEntry(new ZipEntry(relative));
+                                    Files.copy(p, zis);
+                                } else {
+                                    throw new RuntimeException("Duplicate file in bundle: " + relative);
+                                }
+                            } else {
+                                // Just skip it
                             }
                         } catch (IOException e) {
                             throw new RuntimeException(e);

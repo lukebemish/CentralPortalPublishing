@@ -2,3 +2,6 @@ pluginManagement {
     includeBuild '../'
 }
 
+include 'subproject'
+
+rootProject.name = 'test'
