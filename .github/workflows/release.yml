@@ -139,7 +139,7 @@
                 {
                     "name": "Publish Plugins",
                     "id": "publish_plugins",
-                    "run": "./gradlew publishPlugins",
+                    "run": "./gradlew publishPlugins --no-configuration-cache",
                     "env": {
                         "BUILD_CACHE_PASSWORD": "${{ secrets.BUILD_CACHE_PASSWORD }}",
                         "BUILD_CACHE_USER": "${{ secrets.BUILD_CACHE_USER }}",
