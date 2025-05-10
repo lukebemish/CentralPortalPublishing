@@ -29,15 +29,6 @@ dependencies {
 }
 
 gradlePlugin {
-    plugins {
-        managedVersioning {
-            id = 'dev.lukebemish.central-portal-publishing'
-            implementationClass = 'dev.lukebemish.centralportalpublishing.CentralPortalPublishingPlugin'
-        }
-    }
-}
-
-gradlePlugin {
     website = 'https://github.com/lukebemishprojects/CentralPortalPublishing'
     vcsUrl = 'https://github.com/lukebemishprojects/CentralPortalPublishing.git'
 
