@@ -1,7 +1,13 @@
 pluginManagement {
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+    }
+
     includeBuild '../'
 }
 
 include 'subproject'
+include 'no-plugin'
 
 rootProject.name = 'test'

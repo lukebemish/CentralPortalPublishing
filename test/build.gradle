@@ -7,11 +7,13 @@ plugins {
 group = 'org.example'
 version = '1.0.0'
 
-centralPortalPublishing.bundle('main')
+centralPortalPublishing.bundle('main') {
+
+}
 
 publishing {
     repositories {
-        centralPortalPublishing.portal(':', 'main')
+        centralPortalPublishing.portalBundle(':', 'main')
     }
     publications {
         mavenJava(MavenPublication) {

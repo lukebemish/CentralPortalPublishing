@@ -1,8 +1,8 @@
 package dev.lukebemish.centralportalpublishing;
 
 import org.apache.commons.lang3.StringUtils;
+import org.gradle.api.Action;
 import org.gradle.api.Project;
-import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.publish.PublishingExtension;
@@ -52,7 +52,7 @@ public abstract class CentralPortalProjectExtension {
         return attrValue.toString();
     }
 
-    public void bundle(String name) {
+    public void bundle(String name, Action<? super CentralPortalBundleSpec> action) {
         String attrValue = attrValue(getProject().getPath(), name);
         var depConfiguration = getProject().getConfigurations().dependencyScope(CONSUMES_BUNDLE_UPLOAD_DEPENDENCIES + StringUtils.capitalize(name));
         var configuration = getProject().getConfigurations().resolvable(CONSUMES_BUNDLE_UPLOAD + StringUtils.capitalize(name), config -> {
@@ -66,13 +66,18 @@ public abstract class CentralPortalProjectExtension {
                 "path", isolated.getPath()
             )));
         });
-        getProject().getTasks().register("publish"+StringUtils.capitalize(name)+"CentralPortalBundle", UploadBundleTask.class, task -> {
+        var publishBundle = getProject().getTasks().register("publish"+StringUtils.capitalize(name)+"CentralPortalBundle", UploadBundleTask.class, task -> {
+            task.setGroup("publishing");
+            action.execute(task.getBundleSpec());
             task.getBundleDependencies().from(configuration.map(config -> config.getIncoming().artifactView(view -> {
                 view.setLenient(true); // So that we act as expected with projects that do not use this bundle
                 view.withVariantReselection();
                 view.getAttributes().attribute(CentralPortalPublishingPlugin.UPLOADS_BUNDLE, attrValue);
             }).getArtifacts().getArtifactFiles()));
-            task.getBundleFile().set(getProject().getLayout().getBuildDirectory().file("centralPortalPublishing/bundles/"+name+".jar"));;
+            task.getBundleFile().set(getProject().getLayout().getBuildDirectory().file("centralPortalPublishing/bundles/"+name+".jar"));
+        });
+        getProject().getTasks().named("publish", task -> {
+            task.dependsOn(publishBundle);
         });
     }
 }
