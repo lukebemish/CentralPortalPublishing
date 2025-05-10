@@ -3,6 +3,7 @@ import org.gradle.api.attributes.plugin.GradlePluginApiVersion
 plugins {
     id 'java-gradle-plugin'
     id 'maven-publish'
+    alias cLibs.plugins.gradlepublish
 }
 
 ['apiElements', 'runtimeElements'].each {
@@ -16,15 +17,13 @@ plugins {
     }
 }
 
-repositories {
-    mavenCentral()
-    gradlePluginPortal()
-}
-
 dependencies {
     implementation gradleApi()
     implementation 'org.apache.commons:commons-text:1.10.0'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+
+    compileOnly cLibs.bundles.compileonly
+    annotationProcessor cLibs.bundles.annotationprocessor
 }
 
 gradlePlugin {
@@ -36,9 +35,28 @@ gradlePlugin {
     }
 }
 
+gradlePlugin {
+    website = 'https://github.com/lukebemishprojects/CentralPortalPublishing'
+    vcsUrl = 'https://github.com/lukebemishprojects/CentralPortalPublishing.git'
+
+    plugins {
+        centralPortalPublishing {
+            id = 'dev.lukebemish.central-portal-publishing'
+            implementationClass = 'dev.lukebemish.centralportalpublishing.CentralPortalPublishingPlugin'
+            displayName = 'CentralPortalPublishing'
+            description = 'A plugin for publishing to maven central with the new publishing portal'
+            tags.addAll(['publishing', 'maven'])
+        }
+    }
+}
+
 java.withSourcesJar()
 java.withJavadocJar()
 java.toolchain.languageVersion.set JavaLanguageVersion.of(21)
+
+tasks.named('wrapper', Wrapper) {
+    distributionType = Wrapper.DistributionType.ALL
+}
 
 processResources {
     from rootProject.file('LICENSE')
