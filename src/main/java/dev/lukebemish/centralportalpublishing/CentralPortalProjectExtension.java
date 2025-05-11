@@ -6,6 +6,7 @@ import org.gradle.api.Project;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.publish.PublishingExtension;
+import org.gradle.api.tasks.bundling.Zip;
 
 import javax.inject.Inject;
 import java.util.Map;
@@ -66,15 +67,26 @@ public abstract class CentralPortalProjectExtension {
                 "path", isolated.getPath()
             )));
         });
-        var publishBundle = getProject().getTasks().register("publish"+StringUtils.capitalize(name)+"CentralPortalBundle", UploadBundleTask.class, task -> {
-            task.setGroup("publishing");
-            action.execute(task.getBundleSpec());
-            task.getBundleDependencies().from(configuration.map(config -> config.getIncoming().artifactView(view -> {
+        var makeBundle = getProject().getTasks().register("make"+StringUtils.capitalize(name)+"CentralPortalBundle", Zip.class, task -> {
+            task.getDestinationDirectory().set(getProject().getLayout().getBuildDirectory().dir("centralPortalPublishing/bundles"));
+            task.getArchiveFileName().set(name+".zip");
+            var bundleDependencies = getProject().files();
+            bundleDependencies.from(configuration.map(config -> config.getIncoming().artifactView(view -> {
                 view.setLenient(true); // So that we act as expected with projects that do not use this bundle
                 view.withVariantReselection();
                 view.getAttributes().attribute(CentralPortalPublishingPlugin.UPLOADS_BUNDLE, attrValue);
             }).getArtifacts().getArtifactFiles()));
-            task.getBundleFile().set(getProject().getLayout().getBuildDirectory().file("centralPortalPublishing/bundles/"+name+".jar"));
+            task.dependsOn(bundleDependencies);
+            task.from(bundleDependencies.getAsFileTree(), spec -> {
+                spec.exclude("**/maven-metadata.xml");
+                spec.exclude("**/maven-metadata.xml.*");
+            });
+        });
+        var publishBundle = getProject().getTasks().register("publish"+StringUtils.capitalize(name)+"CentralPortalBundle", UploadBundleTask.class, task -> {
+            task.setGroup("publishing");
+            action.execute(task.getBundleSpec());
+            task.getBundleFile().set(makeBundle.flatMap(Zip::getArchiveFile));
+            task.dependsOn(makeBundle);
         });
         getProject().getTasks().named("publish", task -> {
             task.dependsOn(publishBundle);

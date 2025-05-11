@@ -9,6 +9,7 @@ import okhttp3.RequestBody;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.Nested;
 import org.gradle.api.tasks.TaskAction;
@@ -32,69 +33,18 @@ import java.util.zip.ZipOutputStream;
 
 @UntrackedTask(because = "This task uploads to a remote repository and thus should not be marked up-to-date.")
 public abstract class UploadBundleTask extends DefaultTask {
-    @Internal
-    public abstract ConfigurableFileCollection getBundleDependencies();
-
-    @Internal
+    @Input
     public abstract RegularFileProperty getBundleFile();
 
     @Nested
     public abstract CentralPortalBundleSpec getBundleSpec();
 
     @Inject
-    public UploadBundleTask() {
-        this.dependsOn(getBundleDependencies());
-    }
+    public UploadBundleTask() {}
 
     @TaskAction
     public void execute() {
-        var bundleDependencies = getBundleDependencies().getFiles();
-
-        // Bundle the deps to a jar
-
         var bundlePath = getBundleFile().get().getAsFile().toPath();
-        try {
-            if (Files.exists(bundlePath)) {
-                Files.delete(bundlePath);
-            }
-            Files.createDirectories(bundlePath.getParent());
-        } catch (IOException e) {
-            throw new UncheckedIOException("Failed to delete existing bundle file", e);
-        }
-
-
-        try (var zis = new ZipOutputStream(Files.newOutputStream(bundlePath))) {
-            for (var file : bundleDependencies) {
-                if (!file.exists()) {
-                    continue;
-                }
-                try (var contained = Files.walk(file.toPath())) {
-                    var files = new HashSet<>();
-                    contained.forEach(p -> {
-                        try {
-                            var relative = file.toPath().relativize(p).toString().replace('\\', '/');
-                            if (!Files.isDirectory(p)) {
-                                // Skip directories outright
-                                var fileName = p.getFileName().toString();
-                                if (fileName.startsWith("maven-metadata.xml.") || fileName.equals("maven-metadata.xml")) {
-                                    return;
-                                }
-                                if (files.add(relative)) {
-                                    zis.putNextEntry(new ZipEntry(relative));
-                                    Files.copy(p, zis);
-                                } else {
-                                    throw new IOException("Duplicate file in bundle: " + relative);
-                                }
-                            }
-                        } catch (IOException e) {
-                            throw new UncheckedIOException(e);
-                        }
-                    });
-                }
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
 
         try {
             uploadBundle(bundlePath);
@@ -127,8 +77,8 @@ public abstract class UploadBundleTask extends DefaultTask {
 
         String deployment;
         try (var result = client.newCall(new Request.Builder()
+            .header("Authorization", "Bearer "+authBase64())
             .post(body)
-            .addHeader("Authorization", "UserToken "+authBase64())
             .url(url)
             .build()
         ).execute()) {
@@ -148,9 +98,9 @@ public abstract class UploadBundleTask extends DefaultTask {
                 }
                 try {
                     try (var result = client.newCall(new Request.Builder()
+                        .header("Authorization", "Bearer " + authBase64())
                         .get()
                         .url(getBundleSpec().getPortalUrl().get() + "api/v1/publisher/status?id=" + deployment)
-                        .addHeader("Authorization", "UserToken " + authBase64())
                         .build()
                     ).execute()) {
                         if (!result.isSuccessful()) {
@@ -193,6 +143,7 @@ public abstract class UploadBundleTask extends DefaultTask {
     }
 
     private String authBase64() {
-        return Base64.getEncoder().encodeToString((getBundleSpec().getUsername().get() + ":" + getBundleSpec().getPassword().get()).getBytes(StandardCharsets.UTF_8));
+        var tokenUnEncoded = getBundleSpec().getUsername().get() + ":" + getBundleSpec().getPassword().get();
+        return Base64.getEncoder().encodeToString(tokenUnEncoded.getBytes(StandardCharsets.UTF_8));
     }
 }
