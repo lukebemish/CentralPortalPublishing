@@ -7,11 +7,8 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import org.gradle.api.DefaultTask;
-import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.RegularFileProperty;
-import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFile;
-import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.Nested;
 import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
@@ -23,16 +20,12 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 @UntrackedTask(because = "This task uploads to a remote repository and thus should not be marked up-to-date.")
 public abstract class UploadBundleTask extends DefaultTask {
@@ -103,7 +96,7 @@ public abstract class UploadBundleTask extends DefaultTask {
                 try {
                     try (var result = client.newCall(new Request.Builder()
                         .header("Authorization", "Bearer " + authBase64())
-                        .get()
+                        .post(RequestBody.create(new byte[0]))
                         .url(getBundleSpec().getPortalUrl().get() + "api/v1/publisher/status?id=" + deployment)
                         .build()
                     ).execute()) {
@@ -116,18 +109,20 @@ public abstract class UploadBundleTask extends DefaultTask {
                             throw new IOException("Failed to parse verification response: " + response);
                         }
                         switch (deploymentState) {
-                            case "PENDING", "VALIDATING", "PUBLISHING" -> {
+                            case "PENDING", "VALIDATING" -> {
+                                getLogger().info("Deployment is pending or validating; waiting for {} seconds and trying again.", betweenRequests.toSeconds());
                                 betweenRequests = delay(betweenRequests);
                                 continue;
                             }
                             case "VALIDATED" -> getLogger().lifecycle("Deployment passed validation and ready to manually deploy.");
-                            case "PUBLISHED" -> getLogger().lifecycle("Deployment was successfully published.");
+                            case "PUBLISHED", "PUBLISHING" -> getLogger().lifecycle("Deployment passed validation and is being published.");
                             case "FAILED" -> throw new IOException("Deployment failed. Check the Central Portal UI ("+getBundleSpec().getPortalUrl().get()+") for more details.");
                             default -> throw new IOException("Unknown deployment state: " + deploymentState);
                         }
                         break;
                     } catch (SocketTimeoutException ignored) {
                         // Could just be central being slow -- give it till the main timeout
+                        getLogger().info("Could not check deployment due to socket timeout; waiting for {} seconds and trying again.", betweenRequests.toSeconds());
                         betweenRequests = delay(betweenRequests);
                     }
                 } catch (InterruptedException e) {

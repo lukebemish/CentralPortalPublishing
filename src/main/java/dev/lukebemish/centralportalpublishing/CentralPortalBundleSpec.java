@@ -22,7 +22,7 @@ public abstract class CentralPortalBundleSpec {
     @Inject
     public CentralPortalBundleSpec() {
         getPortalUrl().convention("https://central.sonatype.com/");
-        getVerificationTimeoutSeconds().convention(10L*60);
+        getVerificationTimeoutSeconds().convention(2L*60);
         getPublishingType().convention("USER_MANAGED");
     }
 
