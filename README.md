@@ -17,6 +17,7 @@ Then, define a bundle in one project:
 
 ```gradle
 centralPortalPublishing.bundle('bundleName') {
+    // These should be the username/password combination of a portal token -- see https://central.sonatype.org/publish/generate-portal-token/
     username = ...
     password = ...
 
