@@ -6,8 +6,10 @@ import org.gradle.api.Project;
 import org.gradle.api.artifacts.dsl.RepositoryHandler;
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
 import org.gradle.api.file.ProjectLayout;
+import org.gradle.api.publish.maven.tasks.PublishToMavenRepository;
 
 import javax.inject.Inject;
+import java.util.List;
 
 public abstract class CentralPortalRepositoryHandlerExtension {
     private final RepositoryHandler delegate;
@@ -43,6 +45,20 @@ public abstract class CentralPortalRepositoryHandlerExtension {
         var repo = delegate.maven(r -> {
             r.setName("centralPortal"+StringUtils.capitalize(fullName));
             r.setUrl(repoDirectory.get().getAsFile().toURI());
+        });
+
+        var clearRepository = getProject().getTasks().register("clearCentralPortal" + StringUtils.capitalize(fullName) + "Repository", ClearRepositoryTask.class, task -> {
+            task.getRepositoryDirectory().set(repoDirectory);
+        });
+
+        getProject().getTasks().withType(PublishToMavenRepository.class, task -> {
+            task.dependsOn(getProject().provider(() -> {
+                var typed = getProject().getTasks().named(task.getName(), PublishToMavenRepository.class).get();
+                if (typed.getRepository() != null && typed.getRepository().getName().equals(repo.getName())) {
+                    return List.of(clearRepository);
+                }
+                return List.of();
+            }));
         });
 
         var publishTask = getProject().getTasks().named("publishAllPublicationsToCentralPortal" + StringUtils.capitalize(fullName) +"Repository");
