@@ -20,7 +20,9 @@ public abstract class ClearRepositoryTask extends DefaultTask {
     protected abstract FileSystemOperations getFileSystemOperations();
 
     @Inject
-    public ClearRepositoryTask() {}
+    public ClearRepositoryTask() {
+        this.getOutputs().upToDateWhen(t -> false);
+    }
 
     @TaskAction
     public void run() throws IOException {
