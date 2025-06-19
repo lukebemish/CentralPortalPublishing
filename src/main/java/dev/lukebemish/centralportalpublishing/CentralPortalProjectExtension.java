@@ -3,12 +3,15 @@ package dev.lukebemish.centralportalpublishing;
 import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.Action;
 import org.gradle.api.Project;
+import org.gradle.api.artifacts.ArtifactCollection;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.publish.PublishingExtension;
 import org.gradle.api.tasks.bundling.Zip;
 
 import javax.inject.Inject;
+import java.io.File;
+import java.util.ArrayList;
 import java.util.Map;
 
 public abstract class CentralPortalProjectExtension {
@@ -71,11 +74,21 @@ public abstract class CentralPortalProjectExtension {
             task.getDestinationDirectory().set(getProject().getLayout().getBuildDirectory().dir("centralPortalPublishing/bundles"));
             task.getArchiveFileName().set(name+".zip");
             var bundleDependencies = getProject().files();
-            bundleDependencies.from(configuration.map(config -> config.getIncoming().artifactView(view -> {
+            var artifacts = configuration.map(config -> config.getIncoming().artifactView(view -> {
                 view.setLenient(true); // So that we act as expected with projects that do not use this bundle
                 view.withVariantReselection();
                 view.getAttributes().attribute(CentralPortalPublishingPlugin.UPLOADS_BUNDLE, attrValue);
-            }).getArtifacts().getArtifactFiles()));
+            }).getArtifacts());
+            bundleDependencies.from(artifacts.flatMap(ArtifactCollection::getResolvedArtifacts).map(set -> {
+                var files = new ArrayList<File>();
+                for (var resolved : set) {
+                    if (attrValue.equals(resolved.getVariant().getAttributes().getAttribute(CentralPortalPublishingPlugin.UPLOADS_BUNDLE))) {
+                        files.add(resolved.getFile());
+                    }
+                }
+                return files;
+            }));
+            bundleDependencies.builtBy(artifacts.map(ArtifactCollection::getArtifactFiles));
             task.dependsOn(bundleDependencies);
             task.from(bundleDependencies.getAsFileTree(), spec -> {
                 spec.exclude("**/maven-metadata.xml");
