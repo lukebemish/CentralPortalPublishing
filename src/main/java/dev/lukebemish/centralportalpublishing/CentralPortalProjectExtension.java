@@ -7,6 +7,7 @@ import org.gradle.api.artifacts.ArtifactCollection;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.publish.PublishingExtension;
+import org.gradle.api.publish.plugins.PublishingPlugin;
 import org.gradle.api.tasks.bundling.Zip;
 
 import javax.inject.Inject;
@@ -33,7 +34,7 @@ public abstract class CentralPortalProjectExtension {
     @Inject
     protected abstract Project getProject();
 
-    static String attrValue(String project, String name) {
+    static String taskValue(String project, String name) {
         var parts = project.split(":");
         StringBuilder attrValue = new StringBuilder();
         boolean isFirst = true;
@@ -56,7 +57,29 @@ public abstract class CentralPortalProjectExtension {
         return attrValue.toString();
     }
 
+    static String attrValue(String project, String name) {
+        var parts = project.split(":");
+        StringBuilder attrValue = new StringBuilder();
+        boolean isFirst = true;
+        for (var part : parts) {
+            if (part.isEmpty()) {
+                continue;
+            }
+            if (isFirst) {
+                isFirst = false;
+                attrValue.append(part);
+            } else {
+                attrValue.append(":");
+                attrValue.append(part);
+            }
+        }
+        attrValue.append("::");
+        attrValue.append(name);
+        return attrValue.toString();
+    }
+
     public void bundle(String name, Action<? super CentralPortalBundleSpec> action) {
+        getProject().getPluginManager().apply("publishing");
         String attrValue = attrValue(getProject().getPath(), name);
         var depConfiguration = getProject().getConfigurations().dependencyScope(CONSUMES_BUNDLE_UPLOAD_DEPENDENCIES + StringUtils.capitalize(name));
         var configuration = getProject().getConfigurations().resolvable(CONSUMES_BUNDLE_UPLOAD + StringUtils.capitalize(name), config -> {
@@ -64,31 +87,31 @@ public abstract class CentralPortalProjectExtension {
             config.extendsFrom(depConfiguration.get());
             config.setTransitive(false);
         });
-        getProject().getAllprojects().forEach(p -> {
+        getProject().getRootProject().getAllprojects().forEach(p -> {
             var isolated = p.getIsolated();
             getProject().getDependencies().add(depConfiguration.getName(), getProject().getDependencies().project(Map.of(
                 "path", isolated.getPath()
             )));
         });
+        var bundleDependencies = getProject().files();
+        var artifacts = configuration.map(config -> config.getIncoming().artifactView(view -> {
+            view.setLenient(true); // So that we act as expected with projects that do not use this bundle
+            view.withVariantReselection();
+            view.getAttributes().attribute(CentralPortalPublishingPlugin.UPLOADS_BUNDLE, attrValue);
+        }).getArtifacts());
+        bundleDependencies.from(artifacts.flatMap(ArtifactCollection::getResolvedArtifacts).map(set -> {
+            var files = new ArrayList<File>();
+            for (var resolved : set) {
+                if (attrValue.equals(resolved.getVariant().getAttributes().getAttribute(CentralPortalPublishingPlugin.UPLOADS_BUNDLE))) {
+                    files.add(resolved.getFile());
+                }
+            }
+            return files;
+        }));
+        bundleDependencies.builtBy(artifacts.map(ArtifactCollection::getArtifactFiles));
         var makeBundle = getProject().getTasks().register("make"+StringUtils.capitalize(name)+"CentralPortalBundle", Zip.class, task -> {
             task.getDestinationDirectory().set(getProject().getLayout().getBuildDirectory().dir("centralPortalPublishing/bundles"));
             task.getArchiveFileName().set(name+".zip");
-            var bundleDependencies = getProject().files();
-            var artifacts = configuration.map(config -> config.getIncoming().artifactView(view -> {
-                view.setLenient(true); // So that we act as expected with projects that do not use this bundle
-                view.withVariantReselection();
-                view.getAttributes().attribute(CentralPortalPublishingPlugin.UPLOADS_BUNDLE, attrValue);
-            }).getArtifacts());
-            bundleDependencies.from(artifacts.flatMap(ArtifactCollection::getResolvedArtifacts).map(set -> {
-                var files = new ArrayList<File>();
-                for (var resolved : set) {
-                    if (attrValue.equals(resolved.getVariant().getAttributes().getAttribute(CentralPortalPublishingPlugin.UPLOADS_BUNDLE))) {
-                        files.add(resolved.getFile());
-                    }
-                }
-                return files;
-            }));
-            bundleDependencies.builtBy(artifacts.map(ArtifactCollection::getArtifactFiles));
             task.dependsOn(bundleDependencies);
             task.from(bundleDependencies.getAsFileTree(), spec -> {
                 spec.exclude("**/maven-metadata.xml");
@@ -96,12 +119,13 @@ public abstract class CentralPortalProjectExtension {
             });
         });
         var publishBundle = getProject().getTasks().register("publish"+StringUtils.capitalize(name)+"CentralPortalBundle", UploadBundleTask.class, task -> {
+            task.getInputs().files(bundleDependencies.getAsFileTree().filter(f -> !f.getName().equals("maven-metadata.xml") && !f.getName().startsWith("maven-metadata.xml."))).skipWhenEmpty();
             task.setGroup("publishing");
             action.execute(task.getBundleSpec());
             task.getBundleFile().set(makeBundle.flatMap(Zip::getArchiveFile));
             task.dependsOn(makeBundle);
         });
-        getProject().getTasks().named("publish", task -> {
+        getProject().getTasks().named(PublishingPlugin.PUBLISH_LIFECYCLE_TASK_NAME, task -> {
             task.dependsOn(publishBundle);
         });
     }

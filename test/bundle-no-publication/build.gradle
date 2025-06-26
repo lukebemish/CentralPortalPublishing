@@ -1,0 +1,5 @@
+plugins {
+    id 'dev.lukebemish.central-portal-publishing'
+}
+
+centralPortalPublishing.bundle('main') {}

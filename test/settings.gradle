@@ -9,5 +9,6 @@ pluginManagement {
 
 include 'subproject'
 include 'no-plugin'
+include 'bundle-no-publication'
 
 rootProject.name = 'test'

@@ -10,6 +10,7 @@ version = '2.0.0'
 publishing {
     repositories {
         centralPortalPublishing.portalBundle(':', 'main')
+        centralPortalPublishing.portalBundle(':bundle-no-publication', 'main')
     }
     publications {
         mavenJava(MavenPublication) {
